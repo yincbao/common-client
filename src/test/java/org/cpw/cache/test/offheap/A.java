@@ -1,5 +1,7 @@
 package org.cpw.cache.test.offheap;
 
+import java.sql.Date;
+
 public class A {
 	
 	public String str = "String";

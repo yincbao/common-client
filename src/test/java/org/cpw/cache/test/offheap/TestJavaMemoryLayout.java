@@ -1,4 +1,4 @@
-package org.cpw.cache.test.offheap;
+/*package org.cpw.cache.test.offheap;
 
 public class TestJavaMemoryLayout {
 	private static final int NUM_RECORDS = 50 * 1000 ;
@@ -147,3 +147,4 @@ public class TestJavaMemoryLayout {
 		}
 	}
 }
+*/

@@ -1,6 +1,6 @@
-package org.cpw.cache.exception;
+package org.cpw.exception;
 
-import org.cpw.cache.exception.code.ExceptionCodeEnum;
+import org.cpw.exception.code.ExceptionCodeEnum;
 
 public class CacheException  extends RuntimeException {
 	private static final long serialVersionUID = 1L;

@@ -1,5 +1,11 @@
 package org.cpw.cache;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import redis.clients.jedis.BinaryClient.LIST_POSITION;
+
 /**
  * 
  * ClassName: ICache
@@ -11,20 +17,18 @@ package org.cpw.cache;
  */
 public interface ICache {
 
-	public void set(String key, String value);
-
-	public void set(Object key, Object value);
-
-	public void set(String key, String value, long second);
-
-	public void set(Object key, Object value, long second);
-
+	// common and base actions
+	public boolean set(Object key,Object value);
+	
+	public boolean set(Object key,Object value,long expTime);
+	
+	public Object get(Object key);
+	
+	public <T> T get(Object key,Class<T> returnType);
+	
 	public boolean delete(Object key);
-
-	public <T> T get(String key, Class<T> objectType);
-
-	public <T> T get(Object key, Class<T> objectType);
-
-	public String get(String key);
-
+	
+	public boolean save(Object obj);
+	//common end
+	
 }

@@ -9,13 +9,14 @@ import java.util.Set;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.cpw.cache.exception.DeserializeException;
-import org.cpw.cache.exception.LaunchException;
-import org.cpw.cache.exception.Redis3CmdException;
-import org.cpw.cache.exception.code.ExceptionCodeEnum;
-import org.cpw.cache.redis.r3cluster.serializer.RedisSerializerHelper;
+import org.cpw.cache.redis.IRedisCache;
 import org.cpw.cache.util.DstCacheConfig;
 import org.cpw.cache.util.StringUtil;
+import org.cpw.exception.DeserializeException;
+import org.cpw.exception.LaunchException;
+import org.cpw.exception.Redis3CmdException;
+import org.cpw.exception.code.ExceptionCodeEnum;
+import org.cpw.serializer.SerializerHelper;
 
 import redis.clients.jedis.BinaryClient.LIST_POSITION;
 import redis.clients.jedis.HostAndPort;
@@ -38,7 +39,7 @@ public final class RedisClusterCache implements IRedisCache{
 		logger.info("launching redis3cluster client...");
 		try{
 			String listStr = DstCacheConfig.getProperty("redis.cluster.host.list");
-			logger.debug(" confiured nodes : "+listStr);
+			logger.debug(" confiured nodes are: "+listStr);
 			String[] hosts = listStr.split(",");
 			if(hosts==null||hosts.length<1)
 				throw new LaunchException(ExceptionCodeEnum.redis3ClusterNoValidHostPort);
@@ -68,7 +69,7 @@ public final class RedisClusterCache implements IRedisCache{
 	public void set(Object key, Object value,boolean coverOnExist){
 		if(key==null)
 			return;
-		set(RedisSerializerHelper.serializeKey(key),RedisSerializerHelper.serializeValue(value),coverOnExist);
+		set(SerializerHelper.serializeKey(key),SerializerHelper.serializeValue(value),coverOnExist);
 	}
 	
 	public void set(String key , String value, boolean coverOnExist){
@@ -85,22 +86,33 @@ public final class RedisClusterCache implements IRedisCache{
 		set(key,value,true);
 	}
 	
-	public void set(Object key, Object value){
-		set(key,value,true);
+	public boolean set(Object key, Object value){
+		try{
+			set(key,value,true);
+			return true;
+		}catch(Exception e){
+			return false;
+		}
 	}
 	
-	public void set(String key , String value,long second){
+	public boolean set(String key , String value,long second){
 		if(StringUtil.isEmpty(key))
-			return;
+			return false;
 		logger.debug("opt:setex | key :"+ key+ " | value:"+value+" | second:"+second);
-		jc.setex(key, (int)second/1000, value);
+		try{
+			jc.setex(key, (int)second/1000, value);
+			return true;
+		}catch(Exception e){
+			logger.error(e.getMessage(),e);
+		}
+		return false;
 	}
 	
-	public void set(Object key , Object value,long second){
+	public boolean set(Object key , Object value,long second){
 		if(key==null)
-			return;
+			return false;
 		
-		set(RedisSerializerHelper.serializeKey(key),RedisSerializerHelper.serializeValue(value) ,second);
+		return set(SerializerHelper.serializeKey(key),SerializerHelper.serializeValue(value) ,second);
 	}
 	
 	
@@ -110,7 +122,7 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @return
 	 */
 	public boolean expire (Object key,long seconds){
-		return jc.pexpire(RedisSerializerHelper.serializeKey(key), seconds)==1;
+		return jc.pexpire(SerializerHelper.serializeKey(key), seconds)==1;
 	}
 	
 	/**
@@ -119,7 +131,7 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @return
 	 */
 	public boolean expireAt (Object key,long expireTime){
-		return jc.expireAt(RedisSerializerHelper.serializeKey(key),expireTime)==1;
+		return jc.expireAt(SerializerHelper.serializeKey(key),expireTime)==1;
 	}
 	/**
 	 * redis append
@@ -138,7 +150,7 @@ public final class RedisClusterCache implements IRedisCache{
 	public boolean delete(Object key ){
 		if(key==null)
 			return false;
-		return jc.del(RedisSerializerHelper.serializeKey(key)).longValue()>0;
+		return jc.del(SerializerHelper.serializeKey(key)).longValue()>0;
 	}
 	
 	/**
@@ -147,7 +159,7 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @return
 	 */
 	public String type(Object key){
-		return jc.type(RedisSerializerHelper.serializeKey(key));
+		return jc.type(SerializerHelper.serializeKey(key));
 	}
 	
 	/**
@@ -156,11 +168,11 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @param objectType
 	 * @return
 	 */
-	public <T> T get(String key,Class<T> objectType){
+	private <T> T get(String key,Class<T> objectType){
 		try{
 			String result = jc.get(key);
 			logger.debug("opt: get | key: "+key+" | value: "+result);
-			return RedisSerializerHelper.deserializeValue(result,objectType);
+			return SerializerHelper.deserializeValue(result,objectType);
 		}catch(DeserializeException e){
 			logger.error(e.getMessage(), e);
 		}catch(Exception e){
@@ -178,7 +190,7 @@ public final class RedisClusterCache implements IRedisCache{
 	 */
 	public  <T> T get(Object key,Class<T> objectType){
 		try{
-			return get(RedisSerializerHelper.serializeKey(key),objectType);
+			return get(SerializerHelper.serializeKey(key),objectType);
 		}catch(Exception e ){
 			logger.error(e.getMessage(), e);
 		}
@@ -191,8 +203,8 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @param key
 	 * @return
 	 */
-	public String get(String key){
-		return jc.get(key);
+	public String get(Object key){
+		return jc.get(SerializerHelper.serializeKey(key));
 	}
 	
 	
@@ -202,7 +214,7 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @return
 	 */
 	public long ttl(Object key){
-		return jc.ttl(RedisSerializerHelper.serializeKey(key));
+		return jc.ttl(SerializerHelper.serializeKey(key));
 	}
 	
 	
@@ -212,7 +224,7 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @param key
 	 * @param value
 	 */
-	public void setHashtable(String tableName,String key, String value,boolean coverOnExist){
+	private void setHashtable(String tableName,String key, String value,boolean coverOnExist){
 		if(StringUtil.isEmpty(tableName)||StringUtil.isEmpty(key))
 			return;
 		if(coverOnExist)
@@ -231,7 +243,7 @@ public final class RedisClusterCache implements IRedisCache{
 		if(tableName==null||key==null)
 			return;
 		
-		setHashtable(RedisSerializerHelper.serializeKey(tableName), RedisSerializerHelper.serializeKey(key), RedisSerializerHelper.serializeValue(value),coverOnExist);
+		setHashtable(SerializerHelper.serializeKey(tableName), SerializerHelper.serializeKey(key), SerializerHelper.serializeValue(value),coverOnExist);
 	}
 	
 	/**
@@ -239,7 +251,7 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @param tableName
 	 * @param dataMap
 	 */
-	public void setHashtable(String tableName, Map<String,String> dataMap){
+	private void setHashtable(String tableName, Map<String,String> dataMap){
 		jc.hmset(tableName, dataMap);
 	}
 	
@@ -255,13 +267,13 @@ public final class RedisClusterCache implements IRedisCache{
 		for(K key:dataMap.keySet()){
 			V value = dataMap.get(key);
 			try{
-				sMap.put(RedisSerializerHelper.serializeKey(key), RedisSerializerHelper.serializeValue(value));
+				sMap.put(SerializerHelper.serializeKey(key), SerializerHelper.serializeValue(value));
 			}catch(Exception e){
 				logger.error("class not cast ",e);
 			}
 			
 		}
-		setHashtable(RedisSerializerHelper.serializeKey(tableName), sMap);
+		setHashtable(SerializerHelper.serializeKey(tableName), sMap);
 	}
 	
 	/**
@@ -276,11 +288,11 @@ public final class RedisClusterCache implements IRedisCache{
 		if(tableName==null)
 			return null;
 		
-		List<String> list = jc.hmget(RedisSerializerHelper.serializeKey(tableName), keys);
+		List<String> list = jc.hmget(SerializerHelper.serializeKey(tableName), keys);
 		List<T> resultList = new ArrayList<T>();
 		for(String value:list){
 			try {
-				resultList.add(RedisSerializerHelper.deserializeValue(value,objectType));
+				resultList.add(SerializerHelper.deserializeValue(value,objectType));
 			} catch(DeserializeException e){
 				logger.error(e.getMessage(), e);
 			}
@@ -294,14 +306,14 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @param objectType
 	 * @return
 	 */
-	public <T> T getFromHashtable(String tableName,String key,Class<T> objectType){
+	private <T> T getFromHashtable(String tableName,String key,Class<T> objectType){
 		if(StringUtil.isEmpty(tableName)){
 			return null; 
 		}
 		String result = jc.hget(tableName, key);
 		logger.debug("opt: get | key: "+key+" | value: "+result);
 		try {
-			return RedisSerializerHelper.deserializeValue(result,objectType);
+			return SerializerHelper.deserializeValue(result,objectType);
 		} catch (DeserializeException e) {
 			logger.error(e.getMessage(),e);
 		}
@@ -319,7 +331,7 @@ public final class RedisClusterCache implements IRedisCache{
 		if(tableName==null){
 			return null; 
 		}
-		return getFromHashtable(RedisSerializerHelper.serializeKey(tableName),RedisSerializerHelper.serializeKey(key),objectType);
+		return getFromHashtable(SerializerHelper.serializeKey(tableName),SerializerHelper.serializeKey(key),objectType);
 	}
 	
 	
@@ -345,7 +357,7 @@ public final class RedisClusterCache implements IRedisCache{
 	public <K, V> Map<K, V> getWholeHashtable(Object tableName,Class<K> mapKeyType,Class<V> mapValueType){
 		if(tableName==null)
 			return null;
-		return RedisSerializerHelper.elStringTranster(jc.hgetAll(RedisSerializerHelper.serializeKey(tableName)), mapKeyType, mapValueType);
+		return SerializerHelper.elStringTranster(jc.hgetAll(SerializerHelper.serializeKey(tableName)), mapKeyType, mapValueType);
 	}
 	
 	/**
@@ -353,7 +365,7 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @param tableName
 	 * @param keys
 	 */
-	public void deleteFromHashtable(String tableName,String... keys){
+	private void deleteFromHashtable(String tableName,String... keys){
 		if(StringUtil.isEmpty(tableName)||keys==null||keys.length<1)
 			return;
 		jc.hdel(tableName, keys);
@@ -369,9 +381,9 @@ public final class RedisClusterCache implements IRedisCache{
 			return;
 		String[] redisKeys = new String[keys.length];
 		for(int i = 0;i<keys.length;i++){
-			redisKeys[i] = RedisSerializerHelper.serializeKey(keys[i]);
+			redisKeys[i] = SerializerHelper.serializeKey(keys[i]);
 		}
-		deleteFromHashtable(RedisSerializerHelper.serializeKey(tableName),redisKeys);
+		deleteFromHashtable(SerializerHelper.serializeKey(tableName),redisKeys);
 	}
 	
 	/**
@@ -380,8 +392,8 @@ public final class RedisClusterCache implements IRedisCache{
 	 */
 	public <T> List<T> getValFromHashtable(Object tableName,Class<T> objectType){
 		
-		List<String> metaData = jc.hvals(RedisSerializerHelper.serializeKey(tableName));
-		return RedisSerializerHelper.elStringTranster(metaData,objectType);
+		List<String> metaData = jc.hvals(SerializerHelper.serializeKey(tableName));
+		return SerializerHelper.elStringTranster(metaData,objectType);
 	}
 	/**
 	 * redis hkeys
@@ -390,8 +402,8 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @return
 	 */
 	public <T> Set<T> getKeySetFromHashtable(Object tableName,Class<T> objectType){
-		Set<String> metaData = jc.hkeys(RedisSerializerHelper.serializeKey(tableName));
-		return RedisSerializerHelper.elStringTranster(metaData,objectType);
+		Set<String> metaData = jc.hkeys(SerializerHelper.serializeKey(tableName));
+		return SerializerHelper.elStringTranster(metaData,objectType);
 	}
 	
 	/**
@@ -402,13 +414,13 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @param createIfNoSuchList true will create a new list when list not exist
 	 * @return
 	 */
-	public boolean setIntoList(Object listName,boolean createIfNoSuchList,Object...elements){
+	public boolean appendToList(Object listName,boolean createIfNoSuchList,Object...elements){
 		if(listName==null||elements==null||elements.length<1)
 			return false;
 		if(createIfNoSuchList)
-			return jc.lpush(RedisSerializerHelper.serializeKey(listName), RedisSerializerHelper.elStringTranster(elements))>-1;
+			return jc.lpush(SerializerHelper.serializeKey(listName), SerializerHelper.elStringTranster(elements))>-1;
 		else
-			return jc.lpushx(RedisSerializerHelper.serializeKey(listName), RedisSerializerHelper.elStringTranster(elements))>-1;
+			return jc.lpushx(SerializerHelper.serializeKey(listName), SerializerHelper.elStringTranster(elements))>-1;
 	}
 	
 	/**
@@ -419,10 +431,10 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @param value
 	 * @return
 	 */
-	public boolean setIntoList(Object listName,LIST_POSITION position,Object pivot,Object value){
+	public boolean appendToList(Object listName,LIST_POSITION position,Object pivot,Object value){
 		if(listName==null||pivot==null||value==null)
 			throw new Redis3CmdException(ExceptionCodeEnum.linsertCMD);
-		return jc.linsert(RedisSerializerHelper.serializeValue(listName), position, RedisSerializerHelper.serializeValue(listName), RedisSerializerHelper.serializeValue(value))>-1;
+		return jc.linsert(SerializerHelper.serializeValue(listName), position, SerializerHelper.serializeValue(listName), SerializerHelper.serializeValue(value))>-1;
 	}
 	
 	/**
@@ -431,10 +443,10 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @param index start form 0, if a minus number input means index from the end a list. -1 mean last one.
 	 * @return
 	 */
-	public  String getFromList(Object listName,long index){
+	public  String getListValByIndex(Object listName,long index){
 		if(listName==null||index<0)
 			throw new Redis3CmdException(ExceptionCodeEnum.lindexCMD);
-		return jc.lindex(RedisSerializerHelper.serializeKey(listName),index);
+		return jc.lindex(SerializerHelper.serializeKey(listName),index);
 	}
 	
 	/**
@@ -445,12 +457,12 @@ public final class RedisClusterCache implements IRedisCache{
 	 * @param objectType
 	 * @return
 	 */
-	public <T> T getFromList(Object listName,long index,Class<T> objectType){
+	public <T> T getListValByIndex(Object listName,long index,Class<T> objectType){
 		if(listName==null||index<0)
 			throw new Redis3CmdException(ExceptionCodeEnum.lindexCMD);
 		if(objectType==null)
-			return (T) getFromList(RedisSerializerHelper.serializeKey(listName) , index);
-		return RedisSerializerHelper.deserializeValue(jc.lindex(RedisSerializerHelper.serializeKey(listName),index), objectType);
+			return (T) getListValByIndex(SerializerHelper.serializeKey(listName) , index);
+		return SerializerHelper.deserializeValue(jc.lindex(SerializerHelper.serializeKey(listName),index), objectType);
 	}
 	
 	/**
@@ -462,7 +474,7 @@ public final class RedisClusterCache implements IRedisCache{
 	public List<String> bpopFromList(int timeout,Object key){
 		if(key==null)
 			throw new Redis3CmdException(ExceptionCodeEnum.blpopCMD);
-		return jc.blpop(timeout,RedisSerializerHelper.serializeKey(key));
+		return jc.blpop(timeout,SerializerHelper.serializeKey(key));
 	}
 	/**
 	 * redis rpop: remove and return the TAIL element from listName
@@ -472,7 +484,7 @@ public final class RedisClusterCache implements IRedisCache{
 	public String popFromList(Object listName){
 		if(listName==null)
 			throw new Redis3CmdException(ExceptionCodeEnum.rpopCMD);
-		return jc.rpop(RedisSerializerHelper.serializeKey(listName));
+		return jc.rpop(SerializerHelper.serializeKey(listName));
 	}
 	/**
 	 * redis rpop: remove and return the tail element from listName
@@ -484,7 +496,7 @@ public final class RedisClusterCache implements IRedisCache{
 			throw new Redis3CmdException(ExceptionCodeEnum.rpopCMD);
 		if(objectType==null)
 			return (T) popFromList( listName);
-		return RedisSerializerHelper.deserializeKey(jc.rpop(RedisSerializerHelper.serializeKey(listName)), objectType);
+		return SerializerHelper.deserializeKey(jc.rpop(SerializerHelper.serializeKey(listName)), objectType);
 	}
 	
 	/**
@@ -498,7 +510,7 @@ public final class RedisClusterCache implements IRedisCache{
 	public void trimList(Object listName, long start , long end){
 		if(listName==null)
 			throw new Redis3CmdException(ExceptionCodeEnum.ltrimCMD);
-		jc.ltrim(RedisSerializerHelper.serializeKey(listName), start, end);
+		jc.ltrim(SerializerHelper.serializeKey(listName), start, end);
 	}
 	
 	/**
@@ -511,7 +523,7 @@ public final class RedisClusterCache implements IRedisCache{
 	public boolean remFromList(Object listName,long start,Object value){
 		if(listName==null)
 			throw new Redis3CmdException(ExceptionCodeEnum.lremCMD);
-		return jc.lrem(RedisSerializerHelper.serializeKey(listName), start, RedisSerializerHelper.serializeKey(value))>0;
+		return jc.lrem(SerializerHelper.serializeKey(listName), start, SerializerHelper.serializeKey(value))>0;
 	}
 	
 	/**
@@ -522,7 +534,7 @@ public final class RedisClusterCache implements IRedisCache{
 	public long getLenOfList(Object listName){
 		if(listName==null)
 			throw new Redis3CmdException(ExceptionCodeEnum.llenCMD);
-		return jc.llen(RedisSerializerHelper.serializeKey(listName));
+		return jc.llen(SerializerHelper.serializeKey(listName));
 	}
 	
 	/**
@@ -536,10 +548,10 @@ public final class RedisClusterCache implements IRedisCache{
 	public  <T> List<T> getList(Object listName, long start, long stop,Class<T> objectType){
 		if(listName==null)
 			throw new Redis3CmdException(ExceptionCodeEnum.lrangeCMD);
-		return RedisSerializerHelper.elStringTranster(jc.lrange(RedisSerializerHelper.serializeKey(listName), start, stop), objectType);
+		return SerializerHelper.elStringTranster(jc.lrange(SerializerHelper.serializeKey(listName), start, stop), objectType);
 	}
-	
-	
-	
+	public boolean save(Object obj) {
+		return set(obj, obj);
+	}
 	
 }

@@ -18,6 +18,18 @@ public class CacheElement {
 		this.key = key;
 		this.value = value;
 	}
+	
+	
+
+	public CacheElement(Object key, Object value, long creationTime, long expiryTime) {
+		super();
+		this.key = key;
+		this.value = value;
+		this.creationTime = creationTime;
+		this.expiryTime = expiryTime;
+	}
+
+
 
 	public long getCreationTime() {
 		return creationTime;

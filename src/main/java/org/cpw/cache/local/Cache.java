@@ -19,15 +19,18 @@ import org.apache.commons.logging.LogFactory;
  */
 public class Cache {
 	private static Log logger = LogFactory.getLog( Cache.class.getName() );
-	private long expireTime;
+	long expireTime = 30*24*3600;
 	private String cacheName;
-	private int cacheSize;
+	int cacheSize = 1000;
 	private Map<Object, CacheElement> elementMap=new HashMap<Object, CacheElement>();
 	
-	public Cache(String cacheName,long timeToLiveInSeconds, int maxElements){
+	Cache(String cacheName,long expireTime, int cacheSize){
 		this.cacheName = cacheName;
-		this.expireTime = timeToLiveInSeconds;
-		this.cacheSize = maxElements;
+		this.expireTime = expireTime;
+		this.cacheSize = cacheSize;
+	}
+	Cache(String cacheName){
+		this.cacheName = cacheName;
 	}
 
 	public String getCacheName() {
@@ -53,6 +56,10 @@ public class Cache {
 	
 	public CacheElement get(Object key) {
 		return elementMap.get(key);
+	}
+	
+	public boolean rem(Object key){
+		return elementMap.remove(key)!=null;
 	}
 
 	public Object getCacheElementValue(Object key) {

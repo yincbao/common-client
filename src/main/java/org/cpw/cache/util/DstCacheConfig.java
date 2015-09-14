@@ -5,8 +5,8 @@ import java.util.*;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.cpw.cache.exception.ConfigException;
-import org.cpw.cache.exception.code.ExceptionCodeEnum;
+import org.cpw.exception.ConfigException;
+import org.cpw.exception.code.ExceptionCodeEnum;
 
 
 public class DstCacheConfig{

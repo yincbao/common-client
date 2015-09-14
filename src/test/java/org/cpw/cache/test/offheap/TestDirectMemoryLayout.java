@@ -1,4 +1,4 @@
-package org.cpw.cache.test.offheap;
+/*package org.cpw.cache.test.offheap;
 
 import java.lang.reflect.Field;
 
@@ -202,4 +202,4 @@ public class TestDirectMemoryLayout {
 			unsafe.putChar(objectOffset + sideOffset, side);
 		}
 	}
-}
+}*/
